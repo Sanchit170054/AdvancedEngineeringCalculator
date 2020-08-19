@@ -1,0 +1,3 @@
+Dictionary
+Demo
+	R=((S+A-N/N*A-S+(A-N)--N+-A)A*N-N+S)*N
