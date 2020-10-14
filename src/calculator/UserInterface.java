@@ -25,11 +25,16 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Scanner;
+import java.util.Stack;
 import java.util.Vector;
+
+import Section_1.Q1toQ4;
 import calculator.BusinessLogic;
 
 /**
@@ -41,7 +46,7 @@ import calculator.BusinessLogic;
  * <p> Copyright: Lynn Robert Carter Â© 2017 </p>
  * 
  * @author Lynn Robert Carter
- * updated Author Sanchit, Shivam Singhal (Helper in LookUp table)
+ * updated Author Sanchit
  * 
  * @version 4.4	2018-02-27 Simple Userinterface for the all Opertors
  * @version 4.5 2018-03-06 Implementation of ErrorTerm
@@ -69,11 +74,12 @@ s
 	public CalculatorValue cv = new CalculatorValue();
 	public DefinationsUserInterface definitionUI;
 	public programUserInterface ProgramUI;
+	public static Q1toQ4 Section1 = new Q1toQ4();
 	
 	// These are the application values required by the user interface
 	
 	// various required labels and textfield used for UI of calculator
-	private Label label_Calculator = new Label("Science and Engineering Calculators with Units");
+	private Label label_Calculator = new Label("Advanced Engineering Calculator with Auto Units Conversion");
 	private Label label_Operand1 = new Label(" First operand ");
 	public static TextField text_Operand1 = new TextField();
 	private Label label_Operand2 = new Label(" Second operand");
@@ -83,6 +89,8 @@ s
 	public static TextField TextErrorTerm1 = new TextField();
 	private static TextField TextErrorTerm2 = new TextField();
 	public static TextField TextResultErrorTerm = new TextField();
+	public static Label saveResult = new Label("Save Results");
+	
 	
 	public Label loadfile = new Label("Enter file name to read data: ");
 	public static TextField LoadFiletxt = new TextField();
@@ -117,6 +125,16 @@ s
 	private Button button_Division = new Button("/");	
 	private Button button_Squareroot = new Button("\u221A");  // Uni Code for the square root button
 	private Button definationDemo = new Button("Add Definations");
+	
+	
+	
+	public static Button AddComputedResult = new Button("\u24B6");
+	public static Button RemoveComputedResult = new Button("\u24B9");
+	public static Button ViewComputedResult = new Button("\u24CB");
+	
+	
+	
+	
 	
 	public Button loadButton = new Button("Load file's data");
 	public Button saveComputation = new Button("Save Computed Result");
@@ -165,12 +183,14 @@ s
 	 private String str_FileName;   // The string that the user enters for the file name
 	 private Scanner scanner_Input = null;  // The Scanners used to evaluate whether or not the
 	 private String errorMessage_FileContents = ""; // These attributes are used to tell the user, in detail, about errors in the input data
+	 	 
+	 public Button program = new Button("Write own Program");
 	 
 	 
-	 
-	 
-	 public Button program = new Button("Program");
-	 
+	 public static LinkedList<String> list = new LinkedList<>();
+	 public static Stack<String> st = new Stack<>();
+	 private static Label message1 = new Label("");
+		
 	 
 	/**********************************************************************************************
 	Constructors
@@ -298,21 +318,41 @@ s
 		button_Squareroot.setOnAction((event) -> {sqrtOperand();});
 
 		// Establish the SaveComputation button, and link it to methods to accomplish its work
-		setupButtonUI(saveComputation, "Times", 20, BUTTON_WIDTH, Pos.BASELINE_LEFT, 5 * buttonSpace-BUTTON_OFFSET, 470 );
-		saveComputation.setOnAction((event) -> {saveComputations();});
-		saveComputation.setDisable(true);
+		setupButtonUI(saveComputation, "Times", 20, BUTTON_WIDTH, Pos.BASELINE_LEFT, 4.5 * buttonSpace-BUTTON_OFFSET, 470 );
+		saveComputation.setOnAction((event) -> {save();});
+		
+		saveComputation.setDisable(false);
 		
 		
 		// Establish the SQRT button, and link it to methods to accomplish its work
-		setupButtonUI(definationDemo, "Times", 20, BUTTON_WIDTH, Pos.BASELINE_LEFT, 5 * buttonSpace-BUTTON_OFFSET, 400 );
+		setupButtonUI(definationDemo, "Times", 20, BUTTON_WIDTH, Pos.BASELINE_LEFT, 4.5 * buttonSpace-BUTTON_OFFSET, 400 );
 		definationDemo.setOnAction((event) -> {	windowPupup(); saveComputation.setDisable(false);LoadFiletxt.setText("");
 		message.setText(""); blk_Text.setDisable(true);blk_Text1.setDisable(true);lbl_blk.setDisable(true);lbl_blk1.setDisable(true);
 		loadButton.setDisable(true);
 		});
 		
 		
+		// Establish the SUB "-" button, position it, and link it to methods to accomplish its work
+				setupButtonUI(AddComputedResult, "Symbol", 32, BUTTON_WIDTH, Pos.BASELINE_LEFT, 2 * buttonSpace-BUTTON_OFFSET, 790);
+				AddComputedResult.setOnAction((event) -> { saveComputations1();});
+				AddComputedResult.setLayoutX(100);
+				
+				// Establish the SUB "-" button, position it, and link it to methods to accomplish its work
+				setupButtonUI(RemoveComputedResult, "Symbol", 32, BUTTON_WIDTH, Pos.BASELINE_LEFT, 3 * buttonSpace-BUTTON_OFFSET, 790);
+				RemoveComputedResult.setOnAction((event) -> { saveComputations2();});
+				RemoveComputedResult.setLayoutX(300);
+					
+				// Establish the SUB "-" button, position it, and link it to methods to accomplish its work
+				setupButtonUI(ViewComputedResult, "Symbol", 32, BUTTON_WIDTH, Pos.BASELINE_LEFT, 4 * buttonSpace-BUTTON_OFFSET, 790);
+				ViewComputedResult.setOnAction((event) -> { saveComputations3();});
+				ViewComputedResult.setLayoutX(500);
 		
-		setupButtonUI(program, "Times", 20, BUTTON_WIDTH, Pos.BASELINE_LEFT, 5 * buttonSpace-BUTTON_OFFSET, 550 );
+		
+		
+		
+		
+		
+		setupButtonUI(program, "Times", 20, BUTTON_WIDTH, Pos.BASELINE_LEFT, 4.5 * buttonSpace-BUTTON_OFFSET, 550 );
 		program.setOnAction((event) -> {ProgramUI.openPopup();});
 		
 		
@@ -321,6 +361,10 @@ s
 		// Label the loadFile to specify the calculator that from which file, scan the value
 		setupLabelUI(loadfile, "Arial", 18, Calculator.WINDOW_WIDTH-10, Pos.BASELINE_LEFT, 100, 520 );
 
+		
+		setupLabelUI(saveResult, "Arial", 18, Calculator.WINDOW_WIDTH-10, Pos.BASELINE_LEFT, 100, 750 );
+
+		
 		// Establish the loadtext file field for user to enter the name of file from where we read the value
 		setupTextUI(LoadFiletxt, "Arial", 18, Calculator.WINDOW_WIDTH-700, Pos.BASELINE_LEFT, 100, 550, true);
 		LoadFiletxt.setMinWidth(400);
@@ -462,6 +506,10 @@ s
 					FIleNotFound.setTextFill(Color.web("Red"));
 			 		
 		
+					
+					
+					
+					
 		// Setting the position of the operands combo box
 		setupComboBoxUI(ComboboxOperand1, "Arial", 18, Calculator.WINDOW_WIDTH-1350, Pos.BASELINE_LEFT,1050, 70, true);
 		setupComboBoxUI(ComboboxOperand2, "Arial", 18, Calculator.WINDOW_WIDTH-1350, Pos.BASELINE_LEFT, 1050, 160, true);
@@ -482,7 +530,8 @@ s
 		button_Addition, button_Subtraction, button_Multiplication, button_Division, button_Squareroot, definationDemo,TextErrorTerm1, PlusMinus1, PlusMinus2
 		,TextErrorTerm2, TextResultErrorTerm, PlusMinus3, label_Operand2Errro2, label_Operand1Errro2, label_errOperand1ETerm, label_errOperand2ETerm,Operand1ErrorFlow,Operand2ErrorFlow,
 		Operand1ErrorTermErrorFlow,Operand2ErrorTermErrorFlow,ComboboxOperand1,ComboboxOperand2,ComboboxOperand3, blk_Text, loadfile, 
-		LoadFiletxt, loadButton, blk_Text1, lbl_blk, lbl_blk1,FileFoud,message, saveComputation,program);}
+		LoadFiletxt, loadButton, blk_Text1, lbl_blk, lbl_blk1,FileFoud,message, saveComputation,program, saveResult,
+		 message1);}
 
 
 
@@ -753,6 +802,126 @@ s
 		         
 		       //event handling of the button for its specific functioning
 		         btnLogin.setOnAction((event) ->{	 UserInterface.save();
+		         				stage.hide();  	});
+		         
+		         // adding the relevant elements to the pane 
+		         pane.getChildren().addAll(label,btnLogin, DefinationsUserInterface.TextFile);
+		      
+		          Scene scene = new Scene(pane, 500, 300); // setting up the attribute of the scene
+		          stage.setScene(scene);
+		          stage.show();
+
+	}
+	
+	
+	
+	public static void saveComputations1() {
+		
+		 Stage stage = new Stage(); // declaring the stage 
+		 Pane pane = new Pane(); // defining the pane
+		 
+		 // setting up the label for guidelines for user
+		 // and defininf its properties
+		 Label label = new Label("Enter file name: ");
+		 label.setLayoutX(80); label.setLayoutY(100);
+		 
+		 // setting up the attributes for the textfield present in the popup
+		 DefinationsUserInterface.TextFile.setLayoutX(80);
+		 DefinationsUserInterface.TextFile.setLayoutY(125);
+		  DefinationsUserInterface.TextFile.setMinWidth(250);
+		 
+		  // creating he button for sving the file
+		         Button btnLogin = new Button();    
+		         btnLogin.setLayoutX(350);
+		         btnLogin.setLayoutY(125);
+		         btnLogin.setText("Save File as");
+		         
+		       //event handling of the button for its specific functioning
+		         btnLogin.setOnAction((event) ->{	SaveCurrentResult();
+		         				stage.hide();  	});
+		         
+		         // adding the relevant elements to the pane 
+		         pane.getChildren().addAll(label,btnLogin, DefinationsUserInterface.TextFile);
+		      
+		          Scene scene = new Scene(pane, 500, 300); // setting up the attribute of the scene
+		          stage.setScene(scene);
+		          stage.show();
+
+	}
+	
+	
+	public static void saveComputations2() {
+		
+		 Stage stage = new Stage(); // declaring the stage 
+		 Pane pane = new Pane(); // defining the pane
+		 
+		 // setting up the label for guidelines for user
+		 // and defininf its properties
+		 Label label = new Label("Enter file name: ");
+		 label.setLayoutX(80); label.setLayoutY(100);
+		 
+		 // setting up the attributes for the textfield present in the popup
+		 DefinationsUserInterface.TextFile.setLayoutX(80);
+		 DefinationsUserInterface.TextFile.setLayoutY(125);
+		  DefinationsUserInterface.TextFile.setMinWidth(250);
+		 
+		  // creating he button for sving the file
+		         Button btnLogin = new Button();    
+		         btnLogin.setLayoutX(350);
+		         btnLogin.setLayoutY(125);
+		         btnLogin.setText("Removed entry As");
+		         
+		       //event handling of the button for its specific functioning
+		         btnLogin.setOnAction((event) ->{	 try {
+					UserInterface.RemoveOldestResult();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+		         				stage.hide();  	});
+		         
+		         // adding the relevant elements to the pane 
+		         pane.getChildren().addAll(label,btnLogin, DefinationsUserInterface.TextFile);
+		      
+		          Scene scene = new Scene(pane, 500, 300); // setting up the attribute of the scene
+		          stage.setScene(scene);
+		          stage.show();
+
+	}
+	
+	
+	
+	public static void saveComputations3() {
+		
+		 Stage stage = new Stage(); // declaring the stage 
+		 Pane pane = new Pane(); // defining the pane
+		 
+		 // setting up the label for guidelines for user
+		 // and defininf its properties
+		 Label label = new Label("Enter file name: ");
+		 label.setLayoutX(80); label.setLayoutY(100);
+		 
+		 // setting up the attributes for the textfield present in the popup
+		 DefinationsUserInterface.TextFile.setLayoutX(80);
+		 DefinationsUserInterface.TextFile.setLayoutY(125);
+		  DefinationsUserInterface.TextFile.setMinWidth(250);
+		 
+		  // creating he button for sving the file
+		         Button btnLogin = new Button();    
+		         btnLogin.setLayoutX(350);
+		         btnLogin.setLayoutY(125);
+		         btnLogin.setText("View Result");
+		         
+		       //event handling of the button for its specific functioning
+		         btnLogin.setOnAction((event) ->{	 
+					try {
+						UserInterface.ViewtheComputedReuslts();
+					} catch (FileNotFoundException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				
+				
 		         				stage.hide();  	});
 		         
 		         // adding the relevant elements to the pane 
@@ -1527,10 +1696,114 @@ s
 	
 	///////////////////////////////////////////////////////////////////////////////////////////////
 	
+
+	public static void SaveCurrentResult() 
+	{
+			
+		if(list.isEmpty() || list.size() <=10)
+		{
+			
+		try {
+			FileWriter fstream = new FileWriter("Computations\\"+DefinationsUserInterface.TextFile.getText()+".txt");
+
+		  BufferedWriter out = new BufferedWriter(fstream);
+		  
+		  list.add("\n"+"Addition: -\n"+"MeasuredValue: " +perform.addition() +" ErrorTerm: "+ perform.addition1()
+			+ " Units: " + ComboboxOperand3.getValue()+"\n\n"
+			+"Subtractions: -\n"+"MeasuredValue: " +perform.subtraction() +" ErrorTerm: "+ perform.subtractionE()
+ 			+ " Units: " + ComboboxOperand3.getValue()+"\n\n"
+ 			+ "Multiplication: -\n"+"MeasuredValue: " +perform.multiplication() +" ErrorTerm: "+ perform.multiplicationE()
+  			+ " Units: " + ComboboxOperand3.getValue()+"\n\n"
+ 			+ "Division: -\n"+"MeasuredValue: " +perform.division() +" ErrorTerm: "+ perform.divisionE()
+ 			+ " Units: " + ComboboxOperand3.getValue()+"\n\n"
+ 			+ "Squareroot: -\n"+"MeasuredValue: " +perform.squareroot() +" ErrorTerm: "+ perform.squarerootE()
+ 	 			+ " Units: " + "sqrt"+ ComboboxOperand3.getValue());
+
+		  
+		 out.write(list.toString());
+		
+		  out.close(); // close the writing
+		  }catch (Exception e){
+		  System.err.println("Error: " + e.getMessage());
+		 
+	}
+		}
+		else {
+			message1.setLayoutX(100);
+			message1.setLayoutY(820);
+			message1.setText("Error" +"\n" +"Limit Exceed....!");
+			final double MAX_FONT_SIZE = 24; 
+			message1.setFont(new Font(MAX_FONT_SIZE));
+			message1.setTextFill(Color.web("Green"));
+			
+		}
 	
 	
+	}
 	
 	
+	public static void RemoveOldestResult() throws IOException
+	{
+		
+		 Scanner sc = new Scanner(new File("Computations\\"+DefinationsUserInterface.TextFile.getText()+".txt"));
+		 
+		 
+		 if(sc.hasNextLine()  )
+		  {
+			  for(int i = 0; i< 39; i++)
+			  {
+				  list.remove(sc.next());
+			  }
+			  message1.setLayoutX(700);
+				message1.setLayoutY(820);
+				message1.setText("Removed the Current Entry");
+				final double MAX_FONT_SIZE = 24; 
+				message1.setFont(new Font(MAX_FONT_SIZE));
+				message1.setTextFill(Color.web("Green"));
+		  }
+		 else {
+				message1.setLayoutX(700);
+				message1.setLayoutY(820);
+				message1.setText("Error" +"\n" +"File is Empty");
+				final double MAX_FONT_SIZE = 24; 
+				message1.setFont(new Font(MAX_FONT_SIZE));
+				message1.setTextFill(Color.web("Green"));
+				
+		 }
+		  
+		  FileWriter fstream = new FileWriter("Computations\\"+DefinationsUserInterface.TextFile.getText()+".txt");
+
+		  BufferedWriter out = new BufferedWriter(fstream);
+		  out.write(list.toString());
+		  
+		  
+		  
+	}
 	
+	public static void ViewtheComputedReuslts() throws FileNotFoundException
+	{
+		
+		LinkedList<String> list1 = new LinkedList<>();
+		
+		
+		          Scanner sc = new Scanner(new FileReader("Computations\\"+DefinationsUserInterface.TextFile.getText()+".txt"));
+		          while(sc.hasNext())
+		          {
+		        	  list1.add(sc.nextLine());
+		          }
+		          
+		ListIterator<String> itr = list1.listIterator();
+		while(itr.hasNext())
+		{
+			System.out.println(itr.next());
+			//result.appendText(itr.next());
+		}
+			
+	}
 	
 }
+
+
+
+
+
